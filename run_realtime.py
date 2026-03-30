@@ -53,7 +53,7 @@ def build_simulation(env_name, config, seed=42):
 
     # Initial cluster position
     if env_name == 'paper_hospital':
-        cx, cy = 20.0, 20.0
+        cx, cy = 21.0, 16.0
     elif env_name == 'hospital':
         cx, cy = 20.0, 15.0
     elif env_name == 'two_rooms':
@@ -103,6 +103,21 @@ def create_realtime_animation(sim, env, config, speed=3, save_path=None):
     ax_main.set_aspect('equal')
     ax_main.set_xlabel('x (m)')
     ax_main.set_ylabel('y (m)')
+
+    # Trajectory traces — one Line2D per node, very light
+    n_nodes = config.num_nodes
+    trajectory_lines = []
+    # Store position history per node
+    trajectory_history = [[] for _ in range(n_nodes)]
+    # Record initial positions
+    for j in range(n_nodes):
+        trajectory_history[j].append(sim.positions[j].copy())
+    # Create a light line for each node with slightly different hues
+    cmap = matplotlib.colormaps['tab20']
+    for j in range(n_nodes):
+        color = cmap(j % 20)
+        line, = ax_main.plot([], [], color=color, alpha=0.25, linewidth=0.5, zorder=2)
+        trajectory_lines.append(line)
 
     # Node scatter
     scatter = ax_main.scatter(sim.positions[:, 0], sim.positions[:, 1],
@@ -158,6 +173,17 @@ def create_realtime_animation(sim, env, config, speed=3, save_path=None):
             if sim.time >= config.total_time:
                 break
             sim.step()
+
+        # Record trajectory positions
+        for j in range(n_nodes):
+            trajectory_history[j].append(sim.positions[j].copy())
+
+        # Update trajectory lines
+        for j in range(n_nodes):
+            pts = trajectory_history[j]
+            if len(pts) >= 2:
+                arr = np.array(pts)
+                trajectory_lines[j].set_data(arr[:, 0], arr[:, 1])
 
         # Update node positions
         scatter.set_offsets(sim.positions)

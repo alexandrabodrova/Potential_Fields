@@ -155,130 +155,172 @@ def make_hospital() -> Environment:
 def make_paper_hospital() -> Environment:
     """Detailed hospital floor plan closely matching Fig. 2 of the paper.
 
-    Recreates the USC hospital environment used by Howard et al.:
-    - Irregular outer boundary (wider left section, narrow right wing)
-    - Multiple rooms of various sizes along corridors
-    - Several corridor intersections
-    - Doorways connecting rooms to corridors
-    - Scale: ~50m x 24m (matching the paper's proportions)
+    Recreates the USC hospital environment used by Howard et al. (DARS 2002).
+    The figure shows a real hospital floor (SDH / USC campus) with:
+    - Irregular outer boundary
+    - Dense cluster of small offices on the left
+    - Central lobby / open areas
+    - Main east-west corridor with T-junctions
+    - Right wing extending as a narrower corridor section with rooms
+    - Various room sizes, internal furniture, pillars
 
-    The initial node cluster should be placed near (20, 20) to match
-    the paper's Fig. 2(a) top-center starting position.
+    Scale: approx 55m x 18m.  Initial cluster at top-center (~25, 16).
     """
+    w = _wall  # shorthand
     walls = []
 
-    # ===================================================================
-    # Outer boundary — L-shaped: wide left block + narrower right wing
-    # ===================================================================
-    # Left block: x=0..30, y=0..24
-    # Right wing: x=30..50, y=6..24
+    # =======================================================================
+    # OUTER BOUNDARY  (irregular, traced from Fig. 2)
+    # =======================================================================
+    #
+    #  The left portion is roughly 28m wide × 18m tall.
+    #  A narrower right wing (x=28..55) is about 10m tall, attached at
+    #  mid-height.  The bottom-left has a protruding section.
+    #
     outer = [
-        (0, 0), (30, 0), (30, 6), (50, 6), (50, 24),
-        (0, 24), (0, 0),
+        # Bottom edge, left to right
+        (0, 0), (7, 0), (7, -3), (14, -3), (14, 0), (28, 0),
+        # Right wing bottom
+        (28, 4), (55, 4),
+        # Right wing right & top
+        (55, 14), (28, 14),
+        # Back to left block top
+        (28, 18), (0, 18),
+        # Close
+        (0, 0),
     ]
     for i in range(len(outer) - 1):
-        walls.append(_wall(*outer[i], *outer[i + 1]))
+        walls.append(w(*outer[i], *outer[i + 1]))
 
-    # ===================================================================
-    # Main horizontal corridor through the left block (y=10..13)
-    # ===================================================================
-    corr_bot, corr_top = 10, 13
+    # =======================================================================
+    # LEFT BLOCK — offices (x=0..14, y=0..18)
+    # =======================================================================
 
-    # Bottom corridor wall (y=10) with doors for lower rooms
-    lower_doors_x = [3.5, 8.5, 13.5, 18.5, 23.5, 28.5]
-    prev = 0.0
-    for dx in lower_doors_x:
+    # -- Row of small rooms along the bottom (y=0..4) --
+    walls.append(w(0, 4, 14, 4))           # corridor south wall at y=4
+    # Room dividers
+    walls += _vwall_with_door(3.5, 0, 4, 2)
+    walls += _vwall_with_door(7, 0, 4, 2)
+    walls += _vwall_with_door(10.5, 0, 4, 2)
+
+    # -- Bottom protrusion rooms (x=7..14, y=-3..0) --
+    walls += _vwall_with_door(10.5, -3, 0, -1.5)
+
+    # -- Row of small rooms along the top (y=14..18) --
+    walls.append(w(0, 14, 14, 14))          # corridor north wall at y=14
+    walls += _vwall_with_door(3.5, 14, 18, 16)
+    walls += _vwall_with_door(7, 14, 18, 16)
+    walls += _vwall_with_door(10.5, 14, 18, 16)
+
+    # -- Vertical corridor in left block (x=14, y=4..14 — east wall of
+    #    left offices).  Doors let people into the central area. --
+    walls += _vwall_with_door(14, 4, 9, 6.5)
+    walls += _vwall_with_door(14, 9, 14, 11.5)
+
+    # -- Interior rooms within left offices (y=4..9 and y=9..14) --
+    # Horizontal divider splitting left offices into upper/lower halves
+    walls += _hwall_with_door(0, 14, 9, 3.5)
+    walls += _hwall_with_door(5, 14, 9, 10)
+
+    # Small vertical partitions inside upper-left offices
+    walls += _vwall_with_door(3.5, 9, 14, 11.5)
+    walls += _vwall_with_door(7, 9, 14, 11.5)
+    walls += _vwall_with_door(10.5, 9, 14, 11.5)
+
+    # Small vertical partitions inside lower-left offices
+    walls += _vwall_with_door(3.5, 4, 9, 6.5)
+    walls += _vwall_with_door(7, 4, 9, 6.5)
+    walls += _vwall_with_door(10.5, 4, 9, 6.5)
+
+    # =======================================================================
+    # CENTRAL AREA  (x=14..28, y=0..18) — larger rooms & lobby
+    # =======================================================================
+
+    # -- Main east-west corridor (y=7..11), the building's spine --
+    walls += _hwall_with_door(14, 21, 7, 17.5)   # south wall of corridor
+    walls += _hwall_with_door(21, 28, 7, 24.5)
+    walls += _hwall_with_door(14, 21, 11, 17.5)  # north wall of corridor
+    walls += _hwall_with_door(21, 28, 11, 24.5)
+
+    # -- Rooms south of corridor (y=0..7) --
+    # Two medium rooms + one large room
+    walls += _vwall_with_door(18, 0, 7, 3.5)
+    walls += _vwall_with_door(23, 0, 7, 3.5)
+
+    # Internal furniture in south rooms
+    walls += _rect_walls(15.5, 2, 1.0, 0.6)    # desk
+    walls += _rect_walls(24.5, 1.5, 0.6, 1.2)  # cabinet
+
+    # -- Rooms north of corridor (y=11..18) --
+    # A large room (operating / conference) and a medium room
+    walls += _vwall_with_door(19, 11, 18, 14.5)
+    walls += _vwall_with_door(24, 11, 18, 14.5)
+
+    # Partition inside the large north room
+    walls.append(w(19, 15, 22, 15))  # partial wall, no door (counter)
+
+    # Internal furniture in north rooms
+    walls += _rect_walls(15, 15.5, 1.5, 0.8)   # table
+    walls += _rect_walls(20.5, 12, 0.8, 0.8)   # pillar
+    walls += _rect_walls(25.5, 15, 1.0, 1.0)   # equipment
+
+    # =======================================================================
+    # RIGHT WING  (x=28..55, y=4..14)  — corridor with rooms on both sides
+    # =======================================================================
+
+    # -- East-west corridor through the right wing (y=7..11) --
+    #    This connects to the central corridor at x=28.
+    #    Build corridor walls with doors every ~5m.
+    rw_south_doors = [32, 37, 42, 47, 52]
+    prev = 28.0
+    for dx in rw_south_doors:
         left = dx - DOOR_W / 2
         right = dx + DOOR_W / 2
         if left > prev + 0.01:
-            walls.append(_wall(prev, corr_bot, left, corr_bot))
+            walls.append(w(prev, 7, left, 7))
         prev = right
-    if prev < 30:
-        walls.append(_wall(prev, corr_bot, 30, corr_bot))
+    if prev < 55:
+        walls.append(w(prev, 7, 55, 7))
 
-    # Top corridor wall (y=13) with doors for upper rooms
-    upper_doors_x = [3.5, 8.5, 13.5, 18.5, 23.5, 28.5]
-    prev = 0.0
-    for dx in upper_doors_x:
+    rw_north_doors = [32, 37, 42, 47, 52]
+    prev = 28.0
+    for dx in rw_north_doors:
         left = dx - DOOR_W / 2
         right = dx + DOOR_W / 2
         if left > prev + 0.01:
-            walls.append(_wall(prev, corr_top, left, corr_top))
+            walls.append(w(prev, 11, left, 11))
         prev = right
-    if prev < 30:
-        walls.append(_wall(prev, corr_top, 30, corr_top))
+    if prev < 55:
+        walls.append(w(prev, 11, 55, 11))
 
-    # ===================================================================
-    # Room dividers — lower rooms (y=0..10)
-    # ===================================================================
-    for x in [6, 11, 16, 21, 26]:
-        walls.append(_wall(x, 0, x, corr_bot))
+    # -- Room dividers south of corridor (y=4..7) --
+    walls += _vwall_with_door(33, 4, 7, 5.5)
+    walls += _vwall_with_door(38, 4, 7, 5.5)
+    walls += _vwall_with_door(44, 4, 7, 5.5)
+    walls += _vwall_with_door(50, 4, 7, 5.5)
 
-    # ===================================================================
-    # Room dividers — upper rooms (y=13..24)
-    # ===================================================================
-    for x in [6, 11, 16, 21, 26]:
-        walls.append(_wall(x, corr_top, x, 24))
+    # -- Room dividers north of corridor (y=11..14) --
+    walls += _vwall_with_door(33, 11, 14, 12.5)
+    walls += _vwall_with_door(38, 11, 14, 12.5)
+    walls += _vwall_with_door(44, 11, 14, 12.5)
+    walls += _vwall_with_door(50, 11, 14, 12.5)
 
-    # ===================================================================
-    # Right wing corridor (y=13..16, x=30..50) connecting to main corridor
-    # ===================================================================
-    rw_corr_bot, rw_corr_top = 13, 16
+    # -- Internal details in right-wing rooms --
+    walls += _rect_walls(29.5, 5, 0.6, 0.6)   # small obstacle
+    walls += _rect_walls(40, 12, 1.0, 0.5)     # desk
+    walls += _rect_walls(46, 5, 0.5, 0.8)      # cabinet
+    walls += _rect_walls(52, 12, 0.8, 0.6)     # equipment
 
-    # Bottom wall of right-wing corridor (y=13, x=30..50)
-    # Opening at x=30 connects to main corridor's top-right
-    rw_lower_doors = [35, 40, 45]
-    prev = 30.0
-    for dx in rw_lower_doors:
-        left = dx - DOOR_W / 2
-        right = dx + DOOR_W / 2
-        if left > prev + 0.01:
-            walls.append(_wall(prev, rw_corr_bot, left, rw_corr_bot))
-        prev = right
-    if prev < 50:
-        walls.append(_wall(prev, rw_corr_bot, 50, rw_corr_bot))
+    # =======================================================================
+    # JUNCTION between central area corridor and right wing
+    # =======================================================================
+    # At x=28 the outer boundary goes from (28,0) to (28,4) and (28,14) to
+    # (28,18).  The corridor (y=7..11) passes through.  Fill the gaps:
+    walls.append(w(28, 0, 28, 7))    # below corridor
+    walls.append(w(28, 11, 28, 14))  # above corridor on right-wing side
+    walls.append(w(28, 14, 28, 18))  # above right-wing top
 
-    # Top wall of right-wing corridor (y=16, x=30..50)
-    rw_upper_doors = [35, 40, 45]
-    prev = 30.0
-    for dx in rw_upper_doors:
-        left = dx - DOOR_W / 2
-        right = dx + DOOR_W / 2
-        if left > prev + 0.01:
-            walls.append(_wall(prev, rw_corr_top, left, rw_corr_top))
-        prev = right
-    if prev < 50:
-        walls.append(_wall(prev, rw_corr_top, 50, rw_corr_top))
-
-    # Room dividers in right wing — lower rooms (y=6..13)
-    for x in [35, 40, 45]:
-        walls.append(_wall(x, 6, x, rw_corr_bot))
-
-    # Room dividers in right wing — upper rooms (y=16..24)
-    for x in [35, 40, 45]:
-        walls.append(_wall(x, rw_corr_top, x, 24))
-
-    # ===================================================================
-    # Vertical corridor connecting left block's corridor to right wing
-    # (x=28..30, y=10..13 is already open; extend passage y=13..16)
-    # ===================================================================
-    # The junction at x=30 needs an opening: remove part of left-block
-    # outer wall at x=30 between y=10..16 (already handled since the
-    # outer boundary goes (30,0)->(30,6) and the corridor walls stop at 30)
-
-    # Small connecting gap wall on x=30 between y=6..10
-    walls.append(_wall(30, 6, 30, corr_bot))
-
-    # ===================================================================
-    # Interior details — small obstacles in some rooms (furniture-like)
-    # ===================================================================
-    # A couple of small rectangular obstacles in the larger left rooms
-    walls += _rect_walls(2, 4, 1.5, 1.0)   # table in bottom-left room
-    walls += _rect_walls(13, 5, 1.0, 1.5)  # desk in a lower room
-    walls += _rect_walls(8, 18, 1.0, 1.0)  # cabinet in upper room
-    walls += _rect_walls(18, 16, 1.5, 1.0) # table in upper room
-
-    return Environment(walls, bounds=(0, 0, 50, 24))
+    return Environment(walls, bounds=(-1, -4, 56, 19))
 
 
 # ---------------------------------------------------------------------------
