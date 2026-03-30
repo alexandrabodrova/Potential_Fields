@@ -31,10 +31,12 @@ def plot_environment(ax, environment: Environment, color='black', linewidth=1.5)
 
 def plot_snapshot(positions: np.ndarray, environment: Environment,
                   title: str = "", sensor_range: float = None,
+                  node_radius: float = 0.0,
                   ax=None, show_range: bool = False, figsize=(10, 8)):
     """Plot a snapshot of node positions in the environment.
 
     Recreates the style of Fig. 2(a,b) from the paper.
+    If node_radius > 0, draws robots as filled circles with that radius.
     """
     if ax is None:
         fig, ax = plt.subplots(1, 1, figsize=figsize)
@@ -42,8 +44,16 @@ def plot_snapshot(positions: np.ndarray, environment: Environment,
         fig = ax.figure
 
     plot_environment(ax, environment)
-    ax.scatter(positions[:, 0], positions[:, 1], s=20, c='blue',
-               edgecolors='darkblue', linewidths=0.5, zorder=5)
+
+    if node_radius > 0:
+        for pos in positions:
+            body = plt.Circle(pos, node_radius, facecolor='dodgerblue',
+                              edgecolor='navy', linewidth=0.6, alpha=0.85,
+                              zorder=5)
+            ax.add_patch(body)
+    else:
+        ax.scatter(positions[:, 0], positions[:, 1], s=20, c='blue',
+                   edgecolors='darkblue', linewidths=0.5, zorder=5)
 
     if show_range and sensor_range is not None:
         for pos in positions:
@@ -122,6 +132,7 @@ def plot_deployment_comparison(positions_initial: np.ndarray,
                                environment: Environment,
                                coverage_result: dict = None,
                                sensor_range: float = None,
+                               node_radius: float = 0.0,
                                figsize=(18, 5)):
     """Side-by-side comparison matching Fig. 2 from the paper.
 
@@ -131,9 +142,11 @@ def plot_deployment_comparison(positions_initial: np.ndarray,
     fig, axes = plt.subplots(1, n_panels, figsize=figsize)
 
     plot_snapshot(positions_initial, environment,
-                  title='(a) Initial configuration', ax=axes[0])
+                  title='(a) Initial configuration', ax=axes[0],
+                  node_radius=node_radius)
     plot_snapshot(positions_final, environment,
-                  title='(b) Final configuration', ax=axes[1])
+                  title='(b) Final configuration', ax=axes[1],
+                  node_radius=node_radius)
 
     if coverage_result is not None:
         plot_coverage_grid(coverage_result, environment, ax=axes[2])

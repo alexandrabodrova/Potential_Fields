@@ -100,13 +100,19 @@ class Simulator:
         candidate = self.positions + self.velocities * cfg.dt
 
         self._resolve_wall_collisions(candidate)
+        self._enforce_wall_clearance()
 
-        # Clamp to environment bounds (safety net)
+        # Clamp to environment bounds, respecting radius
+        r = cfg.node_radius
         self.positions[:, 0] = np.clip(
-            self.positions[:, 0], self.env.bounds[0] + 0.05, self.env.bounds[2] - 0.05
+            self.positions[:, 0],
+            self.env.bounds[0] + r + 0.01,
+            self.env.bounds[2] - r - 0.01
         )
         self.positions[:, 1] = np.clip(
-            self.positions[:, 1], self.env.bounds[1] + 0.05, self.env.bounds[3] - 0.05
+            self.positions[:, 1],
+            self.env.bounds[1] + r + 0.01,
+            self.env.bounds[3] - r - 0.01
         )
 
         self.time += cfg.dt
@@ -267,6 +273,92 @@ class Simulator:
                 self.velocities[col_idx] * wall_tangent, axis=1, keepdims=True
             )
             self.velocities[col_idx] = v_along_tangent * wall_tangent
+
+    def _enforce_wall_clearance(self):
+        """Push nodes away from walls so the robot body doesn't overlap.
+
+        For each wall segment, computes the closest point on the segment
+        to each node. If the distance is less than node_radius, the node
+        is pushed outward along the perpendicular direction.
+
+        This is vectorized over all (node, wall) pairs.
+        """
+        env = self.env
+        if not env.walls:
+            return
+
+        radius = self.config.node_radius
+        if radius <= 0:
+            return
+
+        wp1 = env._wall_p1   # (W, 2)
+        wp2 = env._wall_p2   # (W, 2)
+        pos = self.positions  # (N, 2)
+        n = pos.shape[0]
+        w = wp1.shape[0]
+
+        # Vector along each wall: ab = wp2 - wp1, shape (W, 2)
+        ab = wp2 - wp1  # (W, 2)
+        ab_sq = np.sum(ab**2, axis=1)  # (W,)
+        ab_sq_safe = np.maximum(ab_sq, 1e-12)
+
+        # For each (node, wall), project node onto wall line:
+        # ap = pos - wp1, shape (N, W, 2)
+        # t = dot(ap, ab) / dot(ab, ab), clamped to [0, 1]
+        ap_x = pos[:, 0:1] - wp1[None, :, 0]  # (N, W)
+        ap_y = pos[:, 1:2] - wp1[None, :, 1]  # (N, W)
+        t = (ap_x * ab[None, :, 0] + ap_y * ab[None, :, 1]) / ab_sq_safe[None, :]
+        t = np.clip(t, 0.0, 1.0)  # (N, W)
+
+        # Closest point on each wall to each node:
+        # closest = wp1 + t * ab
+        closest_x = wp1[None, :, 0] + t * ab[None, :, 0]  # (N, W)
+        closest_y = wp1[None, :, 1] + t * ab[None, :, 1]  # (N, W)
+
+        # Distance from node to closest point
+        dx = pos[:, 0:1] - closest_x  # (N, W)
+        dy = pos[:, 1:2] - closest_y  # (N, W)
+        dist_sq = dx**2 + dy**2       # (N, W)
+        dist = np.sqrt(np.maximum(dist_sq, 1e-12))  # (N, W)
+
+        # Find penetrations: dist < radius
+        penetrating = dist < radius  # (N, W)
+
+        if not np.any(penetrating):
+            return
+
+        # For each node, find the wall with the deepest penetration
+        # (smallest distance) to resolve first
+        dist_masked = np.where(penetrating, dist, np.inf)  # (N, W)
+        worst_wall = np.argmin(dist_masked, axis=1)  # (N,)
+        worst_dist = dist_masked[np.arange(n), worst_wall]  # (N,)
+        has_pen = worst_dist < radius  # (N,)
+
+        if not np.any(has_pen):
+            return
+
+        pen_idx = np.where(has_pen)[0]
+        pen_walls = worst_wall[pen_idx]
+        pen_dist = worst_dist[pen_idx]
+
+        # Push direction: from closest point toward node center
+        push_dx = dx[pen_idx, pen_walls]  # (K,)
+        push_dy = dy[pen_idx, pen_walls]  # (K,)
+        push_len = pen_dist  # (K,)
+        push_nx = push_dx / push_len  # (K,) unit normal
+        push_ny = push_dy / push_len
+
+        # Push the node so it's exactly radius away from the wall
+        push_amount = radius - pen_dist  # (K,) how much to push
+        self.positions[pen_idx, 0] += push_nx * (push_amount + 0.005)
+        self.positions[pen_idx, 1] += push_ny * (push_amount + 0.005)
+
+        # Remove velocity component going into the wall
+        v_dot_n = (self.velocities[pen_idx, 0] * push_nx +
+                   self.velocities[pen_idx, 1] * push_ny)
+        into_wall = v_dot_n < 0
+        self.velocities[pen_idx[into_wall], 0] -= v_dot_n[into_wall] * push_nx[into_wall]
+        self.velocities[pen_idx[into_wall], 1] -= v_dot_n[into_wall] * push_ny[into_wall]
 
     def run(self, callback=None):
         """Run the full simulation.

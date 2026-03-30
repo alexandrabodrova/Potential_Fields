@@ -29,6 +29,9 @@ class SimConfig:
     a_max: float = 0.5              # max acceleration (m/s^2)
     v_dead_band: float = 0.001      # velocity dead-band to prevent oscillation
 
+    # --- Physical dimensions ---
+    node_radius: float = 0.15       # robot body radius (meters)
+
     # --- Simulation ---
     dt: float = 0.1                 # time step (seconds)
     total_time: float = 300.0       # total simulation time (seconds)

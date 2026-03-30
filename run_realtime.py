@@ -119,10 +119,15 @@ def create_realtime_animation(sim, env, config, speed=3, save_path=None):
         line, = ax_main.plot([], [], color=color, alpha=0.25, linewidth=0.5, zorder=2)
         trajectory_lines.append(line)
 
-    # Node scatter
-    scatter = ax_main.scatter(sim.positions[:, 0], sim.positions[:, 1],
-                              s=25, c='dodgerblue', edgecolors='navy',
-                              linewidths=0.5, zorder=5)
+    # Node circles — draw as PatchCollection for accurate radius
+    from matplotlib.patches import Circle
+    from matplotlib.collections import PatchCollection
+    node_circles = [Circle(sim.positions[j], config.node_radius)
+                    for j in range(n_nodes)]
+    node_collection = PatchCollection(node_circles, facecolors='dodgerblue',
+                                      edgecolors='navy', linewidths=0.6,
+                                      alpha=0.85, zorder=5)
+    ax_main.add_collection(node_collection)
 
     # HUD text
     hud = ax_main.text(0.02, 0.98, '', transform=ax_main.transAxes,
@@ -185,8 +190,10 @@ def create_realtime_animation(sim, env, config, speed=3, save_path=None):
                 arr = np.array(pts)
                 trajectory_lines[j].set_data(arr[:, 0], arr[:, 1])
 
-        # Update node positions
-        scatter.set_offsets(sim.positions)
+        # Update node circle positions
+        new_circles = [Circle(sim.positions[j], config.node_radius)
+                       for j in range(n_nodes)]
+        node_collection.set_paths(new_circles)
 
         # Compute KE
         ke = sim.get_kinetic_energy()
@@ -244,7 +251,7 @@ def create_realtime_animation(sim, env, config, speed=3, save_path=None):
                 print(f"  Final separation: {metric_sep_mean[-1]:.2f} "
                       f"± {metric_sep_std[-1]:.2f} m")
 
-        return scatter, hud, cov_line, sep_line
+        return node_collection, hud, cov_line, sep_line
 
     total_frames = int(config.total_time / (config.dt * steps_per_frame)) + 10
 

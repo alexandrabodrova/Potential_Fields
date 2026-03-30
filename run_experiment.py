@@ -108,7 +108,8 @@ def run_single_experiment(env_name: str, config: SimConfig,
 
     # Fig 2-style comparison
     fig, _ = plot_deployment_comparison(
-        initial_pos, sim.positions, env, final_cov, config.sensor_range
+        initial_pos, sim.positions, env, final_cov, config.sensor_range,
+        node_radius=config.node_radius,
     )
     fig.savefig(f"{prefix}_deployment.png", dpi=150, bbox_inches='tight')
     plt.close(fig)
