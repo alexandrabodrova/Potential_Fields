@@ -86,8 +86,8 @@ def create_realtime_animation(sim, env, config, speed=3, save_path=None):
     fig = plt.figure(figsize=(14, 8))
     fig.patch.set_facecolor('white')
 
-    # Main deployment view (left, large)
-    ax_main = fig.add_axes([0.05, 0.08, 0.55, 0.84])
+    # Main deployment view (left, large) — shorter to leave HUD space above
+    ax_main = fig.add_axes([0.05, 0.08, 0.55, 0.76])
     # Coverage over time (top-right)
     ax_cov = fig.add_axes([0.67, 0.55, 0.30, 0.37])
     # Separation over time (bottom-right)
@@ -129,11 +129,11 @@ def create_realtime_animation(sim, env, config, speed=3, save_path=None):
                                       alpha=0.85, zorder=5)
     ax_main.add_collection(node_collection)
 
-    # HUD text
-    hud = ax_main.text(0.02, 0.98, '', transform=ax_main.transAxes,
-                       verticalalignment='top', fontsize=10, family='monospace',
-                       bbox=dict(boxstyle='round,pad=0.4', facecolor='lightyellow',
-                                 edgecolor='gray', alpha=0.9))
+    # HUD text — placed above the main axes so it doesn't overlap the sim
+    hud = fig.text(0.05, 0.96, '', fontsize=10, family='monospace',
+                   verticalalignment='top',
+                   bbox=dict(boxstyle='round,pad=0.4', facecolor='lightyellow',
+                             edgecolor='gray', alpha=0.9))
 
     # --- Metric axes setup ---
     ax_cov.set_xlabel('Time (s)')
