@@ -54,6 +54,8 @@ def run_single_experiment(env_name: str, config: SimConfig,
     # Place nodes in a tight cluster (top-center for hospital, center otherwise)
     if env_name == 'hospital':
         cx, cy = 20.0, 15.0  # upper area of hospital
+    elif env_name == 'paper_hospital':
+        cx, cy = 20.0, 20.0  # top-center, matching Fig. 2(a)
     elif env_name == 'two_rooms':
         cx, cy = 5.0, 5.0    # left room
     else:
